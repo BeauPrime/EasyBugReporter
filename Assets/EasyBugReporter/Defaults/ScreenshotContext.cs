@@ -4,7 +4,10 @@ using System.IO;
 using UnityEngine;
 
 namespace EasyBugReporter {
-    public class ScreenshotContext : IReportSystem {
+    /// <summary>
+    /// Captures a screenshot of the game window.
+    /// </summary>
+    public class ScreenshotContext : IDumpSystem {
         private Texture2D m_Texture;
 
         public void Freeze() {
@@ -16,7 +19,7 @@ namespace EasyBugReporter {
             BugReporter.OnEndOfFrame(TakeScreenshot);
         }
 
-        public bool GatherReports(IReportWriter writer) {
+        public bool Dump(IDumpWriter writer) {
             if (!m_Texture) {
                 return false;
             }

@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 
 namespace EasyBugReporter {
-    public class HtmlReportWriter : IReportWriter {
+    internal class HtmlDumpWriter : IDumpWriter {
         private const string DefaultCSS = @"
 body{font-family:sans-serif;width:100%;height:100%}b{font-weight:bold}i{font-style:italic}h1{font-weight:bold;font-size:x-large}h2{font-weight:bold;font-size:larger}h3{font-weight:bold;font-size:large}h4{font-weight:bold}table{border:1px black solid;width:95%;border-collapse:collapse}td{padding:2px}details summary{cursor:pointer}details summary>*{display:inline;border:0px !important}details{border:1px black solid;padding:2px}
         ";
@@ -12,7 +12,7 @@ body{font-family:sans-serif;width:100%;height:100%}b{font-weight:bold}i{font-sty
         private TextWriter m_TextWriter;
         private string m_CustomCSS;
 
-        public HtmlReportWriter(string css = null) {
+        public HtmlDumpWriter(string css = null) {
             m_CustomCSS = css;
         }
 
@@ -61,7 +61,7 @@ body{font-family:sans-serif;width:100%;height:100%}b{font-weight:bold}i{font-sty
             m_TextWriter.WriteLine("</h4>");
         }
 
-        public void Header(string text, ReportStyle style) {
+        public void Header(string text, DumpStyle style) {
             m_TextWriter.Write("<h3>");
             HtmlText(text);
             m_TextWriter.WriteLine("</h3>");
@@ -72,7 +72,7 @@ body{font-family:sans-serif;width:100%;height:100%}b{font-weight:bold}i{font-sty
                 HtmlText(string.Format("<h4>{0}</h4>", imageName));
             }
             m_TextWriter.Write("<img src=\"");
-            m_TextWriter.Write(ReportUtils.TextureToBase64Html(texture));
+            m_TextWriter.Write(DumpUtils.TextureToBase64Html(texture));
             m_TextWriter.Write("\"");
             if (!string.IsNullOrEmpty(imageName)) {
                 m_TextWriter.Write(" alt=\"");
@@ -90,17 +90,17 @@ body{font-family:sans-serif;width:100%;height:100%}b{font-weight:bold}i{font-sty
             m_TextWriter.WriteLine("<br/><br/>");
         }
 
-        public void Text(string text, ReportStyle style) {
+        public void Text(string text, DumpStyle style) {
             HtmlTextLine(text);
         }
 
-        public void InlineText(string text, ReportStyle style) {
+        public void InlineText(string text, DumpStyle style) {
             HtmlText(text);
         }
 
         #region Section
 
-        public void BeginSection(string sectionName, bool defaultOpen = true, ReportStyle style = default) {
+        public void BeginSection(string sectionName, bool defaultOpen = true, DumpStyle style = default) {
             if (defaultOpen) {
                 m_TextWriter.Write("<br/><details open>\n<summary><h2>");
             } else {
@@ -126,11 +126,11 @@ body{font-family:sans-serif;width:100%;height:100%}b{font-weight:bold}i{font-sty
             m_TextWriter.WriteLine("<table>");
         }
 
-        public void BeginTableCell(ReportStyle style = default) {
+        public void BeginTableCell(DumpStyle style = default) {
             m_TextWriter.WriteLine("<td {0}>", GetCSSForStyle(style));
         }
 
-        public void BeginTableRow(ReportStyle style = default) {
+        public void BeginTableRow(DumpStyle style = default) {
             m_TextWriter.WriteLine("<tr> {0}", GetCSSForStyle(style));
         }
 
@@ -154,7 +154,7 @@ body{font-family:sans-serif;width:100%;height:100%}b{font-weight:bold}i{font-sty
             m_TextWriter.WriteLine(text.Replace("\n", "<br/>") + "<br/>");
         }
 
-        static private string GetCSSForStyle(ReportStyle style) {
+        static private string GetCSSForStyle(DumpStyle style) {
             return string.Empty;
         }
 

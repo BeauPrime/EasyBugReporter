@@ -6,12 +6,12 @@ using UnityEngine;
 
 public class TestThing : MonoBehaviour {
     private IEnumerator Start() {
-        ReporterCollection reporters = new ReporterCollection();
-        reporters.Add(new ScreenshotContext());
-        reporters.Add(new LogContext());
-        reporters.Add(new SystemInfoContext());
-        reporters.Add(new UnityContext());
-        reporters.Initialize();
+        DumpSourceCollection sources = new DumpSourceCollection();
+        sources.Add(new ScreenshotContext());
+        sources.Add(new LogContext());
+        sources.Add(new SystemInfoContext());
+        sources.Add(new UnityContext());
+        sources.Initialize();
 
         Debug.Log("something happened");
         yield return new WaitForSeconds(0.2f);
@@ -20,6 +20,6 @@ public class TestThing : MonoBehaviour {
         Debug.LogError("An ERROR!!!!!");
         yield return null;
 
-        BugReporter.DisplayContext(reporters);
+        BugReporter.DumpContext(sources);
     }
 }

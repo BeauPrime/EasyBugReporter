@@ -9,21 +9,21 @@ using UnityEngine.SceneManagement;
 namespace EasyBugReporter {
 
     /// <summary>
-    /// Reports loaded scenes and gathers reports from IUnityReportContext components.
+    /// Reports loaded scenes and gathers reports from IReportSource components.
     /// </summary>
-    public class UnityContext : IReportSystem {
-        public bool GatherReports(IReportWriter writer) {
+    public class UnityContext : IDumpSystem {
+        public bool Dump(IDumpWriter writer) {
             writer.BeginSection("Loaded Scenes");
 
-            writer.Text("Time Since Startup: " + Time.realtimeSinceStartup.ToString() + " seconds");
-            writer.Text("Profiler Memory Usage Report: " + Profiler.GetTotalAllocatedMemoryLong());
+            writer.KeyValue("Time Since Startup", Time.realtimeSinceStartup.ToString() + " seconds");
+            writer.KeyValue("Profiler Memory Usage Report", Profiler.GetTotalAllocatedMemoryLong());
             
-            HashSet<IUnityReportContext> unityReporters = new HashSet<IUnityReportContext>();
-            List<IUnityReportContext> tempUnityReporters = new List<IUnityReportContext>(64);
+            HashSet<IDumpSource> unityReporters = new HashSet<IDumpSource>();
+            List<IDumpSource> tempUnityReporters = new List<IDumpSource>(64);
             int sceneCount = SceneManager.sceneCount;
             for(int i = 0; i < sceneCount; i++) {
                 Scene scene = SceneManager.GetSceneAt(i);
-                writer.Text("Loaded Scene: " + scene.path);
+                writer.KeyValue("Loaded Scene", scene.path);
             }
 
             writer.EndSection();
@@ -31,7 +31,7 @@ namespace EasyBugReporter {
             writer.BeginSection("World");
 
             foreach(var obj in GameObject.FindObjectsOfType<GameObject>()) {
-                obj.GetComponentsInChildren<IUnityReportContext>(true, tempUnityReporters);
+                obj.GetComponentsInChildren<IDumpSource>(true, tempUnityReporters);
                 foreach(var reporter in tempUnityReporters) {
                     unityReporters.Add(reporter);
                 }
@@ -49,7 +49,7 @@ namespace EasyBugReporter {
                 }
 
                 try {
-                    reportContext.GatherReports(writer);
+                    reportContext.Dump(writer);
                 }
                 catch(Exception e) {
                     UnityEngine.Debug.LogException(e);
@@ -75,14 +75,8 @@ namespace EasyBugReporter {
     }
 
     /// <summary>
-    /// Indicates that this MonoBehaviour can report context.
-    /// </summary>
-    public interface IUnityReportContext : IReportSource {
-    }
-
-    /// <summary>
-    /// Apply this attribute to a class that inherits from IUnityReportCallback
-    /// to allow it to report when the component or gameobject is inactive.
+    /// Apply this attribute to a MonoBehaviour class that inherits from IReportSource
+    /// to allow it to report when the component or GameObject is inactive.
     /// </summary>
     [AttributeUsage(AttributeTargets.Class)]
     public sealed class AlwaysReportAttribute : Attribute {

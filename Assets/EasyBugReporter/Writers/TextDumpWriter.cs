@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 
 namespace EasyBugReporter {
-    public class TextReportWriter : IReportWriter {
+    internal class TextDumpWriter : IDumpWriter {
         private TextWriter m_TextWriter;
 
         public void Begin(Stream stream) {
@@ -44,7 +44,7 @@ namespace EasyBugReporter {
             m_TextWriter.WriteLine(divider);
         }
 
-        public void Header(string text, ReportStyle style) {
+        public void Header(string text, DumpStyle style) {
             m_TextWriter.Write("-- ");
             m_TextWriter.Write(text);
             m_TextWriter.WriteLine(" --");
@@ -54,7 +54,7 @@ namespace EasyBugReporter {
             if (!string.IsNullOrEmpty(imageName)) {
                 m_TextWriter.WriteLine(imageName);
             }
-            m_TextWriter.WriteLine(ReportUtils.TextureToBase64Html(texture));
+            m_TextWriter.WriteLine(DumpUtils.TextureToBase64Html(texture));
         }
 
         public void NextLine() {
@@ -65,17 +65,17 @@ namespace EasyBugReporter {
             m_TextWriter.WriteLine();
         }
 
-        public void Text(string text, ReportStyle style) {
+        public void Text(string text, DumpStyle style) {
             m_TextWriter.WriteLine(text);
         }
 
-        public void InlineText(string text, ReportStyle style) {
+        public void InlineText(string text, DumpStyle style) {
             m_TextWriter.Write(text);
         }
 
         #region Section
 
-        public void BeginSection(string sectionName, bool defaultOpen = true, ReportStyle style = default) {
+        public void BeginSection(string sectionName, bool defaultOpen = true, DumpStyle style = default) {
             m_TextWriter.WriteLine();
             m_TextWriter.WriteLine("----------------------------");
             m_TextWriter.WriteLine(sectionName.ToUpperInvariant());
@@ -99,14 +99,14 @@ namespace EasyBugReporter {
         public void EndTable() {
         }
 
-        public void BeginTableCell(ReportStyle style = default) {
+        public void BeginTableCell(DumpStyle style = default) {
         }
 
         public void EndTableCell() {
             m_TextWriter.WriteLine();
         }
 
-        public void BeginTableRow(ReportStyle style = default) {
+        public void BeginTableRow(DumpStyle style = default) {
         }
 
         public void EndTableRow() {

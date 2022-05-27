@@ -5,8 +5,8 @@ namespace EasyBugReporter {
     /// <summary>
     /// Reports system stats as according to SystemInfo.
     /// </summary>
-    public class SystemInfoContext : IReportSystem {
-        public bool GatherReports(IReportWriter writer) {
+    public class SystemInfoContext : IDumpSystem {
+        public bool Dump(IDumpWriter writer) {
             writer.BeginSection("System Information", false);
             writer.Text(SystemInfoExt.Report(false));
             writer.EndSection();

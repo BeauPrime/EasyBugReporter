@@ -7,19 +7,22 @@ using System.Text;
 using UnityEngine;
 
 namespace EasyBugReporter {
+    /// <summary>
+    /// API for performing dumps and bug reports.
+    /// </summary>
     public sealed class BugReporter {
 
         private const int MaxQueueSize = 8;
 
-        static private readonly HtmlReportWriter DefaultHtmlWriter = new HtmlReportWriter();
-        static private readonly TextReportWriter DefaultTextWriter = new TextReportWriter();
+        static private readonly HtmlDumpWriter DefaultHtmlWriter = new HtmlDumpWriter();
+        static private readonly TextDumpWriter DefaultTextWriter = new TextDumpWriter();
 
         #region Updates
 
         static private GameObject s_HookGO;
         static private bool s_HookInitialized;
 
-        static private WorkQueue<ReporterGatherWorkItem> s_WorkQueue = new WorkQueue<ReporterGatherWorkItem>(MaxQueueSize);
+        static private WorkQueue<DumpWork> s_WorkQueue = new WorkQueue<DumpWork>(MaxQueueSize);
         static private readonly Queue<Action> s_OnEndOfFrameQueue = new Queue<Action>();
         static private StringBuilder s_InMemoryBuilder;
 
@@ -51,7 +54,7 @@ namespace EasyBugReporter {
             }
 
             private void LateUpdate() {
-                UpdateReporterWork();
+                UpdateDumpWork();
             }
 
             private IEnumerator EndOfFrameLoop() {
@@ -91,41 +94,43 @@ namespace EasyBugReporter {
 
         #endregion // Updates
 
-        #region Context Gather
+        #region Dump
 
-        private struct ReporterGatherWorkItem {
-            public ReporterCollection Collection;
+        private struct DumpWork {
+            public DumpSourceCollection Collection;
             public string Title;
             public DateTime Timestamp;
-            public GatherContextFlags Flags;
-            public ReporterGatherWorkItemPhase Progress;
-            public IReportSource[] Sources;
+            public DumpFlags Flags;
+            public DumpWorkPhase Progress;
+            public IDumpSource[] Sources;
             public string TargetPath;
             public ulong SourceWrittenMask;
-            public IReportWriter Writer;
-            public Action<GatherContextResult> OnCompleted;
+            public IDumpWriter Writer;
+            public Action<DumpResult> OnCompleted;
         }
 
-        private enum ReporterGatherWorkItemPhase {
+        private enum DumpWorkPhase {
             Freeze,
             Gather,
             Done
         }
 
-        static private void UpdateReporterWork() {
+        #region Work
+
+        static private void UpdateDumpWork() {
             if (s_WorkQueue.Count == 0) {
                 return;
             }
 
-            ref ReporterGatherWorkItem item = ref s_WorkQueue.Peek();
+            ref DumpWork item = ref s_WorkQueue.Peek();
 
-            if (item.Progress == ReporterGatherWorkItemPhase.Freeze) {
+            if (item.Progress == DumpWorkPhase.Freeze) {
                 item.Timestamp = DateTime.Now;
-                item.Collection.PreReport();
+                item.Collection.Freeze();
                 BeginWriting(ref item);
                 item.Writer.Prelude(item.Title, item.Timestamp);
                 item.Progress++;
-            } else if (item.Progress == ReporterGatherWorkItemPhase.Gather) {
+            } else if (item.Progress == DumpWorkPhase.Gather) {
                 ulong maxMask = ((ulong) 1 << item.Sources.Length) - 1;
                 if (item.SourceWrittenMask != maxMask) {
                     for(int i = 0; i < item.Sources.Length; i++) {
@@ -134,7 +139,7 @@ namespace EasyBugReporter {
                             continue;
                         }
 
-                        if (item.Sources[i].GatherReports(item.Writer)) {
+                        if (item.Sources[i].Dump(item.Writer)) {
                             item.SourceWrittenMask |= mask;
                         }
                     }
@@ -142,8 +147,8 @@ namespace EasyBugReporter {
 
                 if (item.SourceWrittenMask == maxMask) {
                     item.Progress++;
-                    GatherContextResult result = EndWriting(ref item);
-                    item.Collection.PostReport();
+                    DumpResult result = EndWriting(ref item);
+                    item.Collection.Unfreeze();
                     item.OnCompleted?.Invoke(result);
                     PresentReport(result);
                     s_WorkQueue.Dequeue();
@@ -151,8 +156,8 @@ namespace EasyBugReporter {
             }
         }
 
-        static private void BeginWriting(ref ReporterGatherWorkItem item) {
-            if ((item.Flags & GatherContextFlags.InMemory) != 0) {
+        static private void BeginWriting(ref DumpWork item) {
+            if ((item.Flags & DumpFlags.InMemory) != 0) {
                 if (s_InMemoryBuilder == null) {
                     s_InMemoryBuilder = new StringBuilder(1024);
                 } else {
@@ -167,9 +172,9 @@ namespace EasyBugReporter {
             }
         }
 
-        static private GatherContextResult EndWriting(ref ReporterGatherWorkItem item) {
-            GatherContextResult result;
-            if ((item.Flags & GatherContextFlags.InMemory) != 0) {
+        static private DumpResult EndWriting(ref DumpWork item) {
+            DumpResult result;
+            if ((item.Flags & DumpFlags.InMemory) != 0) {
                 result.Contents = s_InMemoryBuilder.ToString();
                 s_InMemoryBuilder.Length = 0;
                 result.Url = result.FilePath = null;
@@ -183,7 +188,7 @@ namespace EasyBugReporter {
             return result;
         }
 
-        static private void PresentReport(GatherContextResult result) {
+        static private void PresentReport(DumpResult result) {
             if (result.Url != null) {
                 #if UNITY_EDITOR
                 UnityEditor.EditorUtility.OpenWithDefaultApp(result.FilePath);
@@ -197,21 +202,28 @@ namespace EasyBugReporter {
             }
         }
 
-        static public void DisplayContext(ReporterCollection collection) {
-            GatherContext(collection, DefaultHtmlWriter, null, 0, ReportFormat.Html, null);
+        #endregion // Work
+
+        #region Setup
+
+        /// <summary>
+        /// Dumps context in its default format (HTML) and attempts to display it to the user.
+        /// </summary>
+        static public void DumpContext(DumpSourceCollection collection) {
+            DumpContext(collection, DefaultHtmlWriter, null, 0, DumpFormat.Html, null);
         }
 
-        static internal void GatherContext(ReporterCollection collection, IReportWriter writer, string title, GatherContextFlags flags, ReportFormat format, Action<GatherContextResult> onCompleted) {
-            ReporterGatherWorkItem workItem;
+        static internal void DumpContext(DumpSourceCollection collection, IDumpWriter writer, string title, DumpFlags flags, DumpFormat format, Action<DumpResult> onCompleted) {
+            DumpWork workItem;
             workItem.Collection = collection;
 
-            IReportSource[] sources = new IReportSource[collection.Count];
+            IDumpSource[] sources = new IDumpSource[collection.Count];
             collection.CopyTo(sources, 0);
             workItem.Sources = sources;
             workItem.SourceWrittenMask = 0u;
             workItem.Writer = writer;
             workItem.OnCompleted = onCompleted;
-            workItem.Progress = ReporterGatherWorkItemPhase.Freeze;
+            workItem.Progress = DumpWorkPhase.Freeze;
             workItem.Title = string.IsNullOrEmpty(title) ? Application.productName : title;
             workItem.Timestamp = default;
             workItem.Flags = GetPlatformFlags(flags);
@@ -222,14 +234,14 @@ namespace EasyBugReporter {
             EnsureHook();
         }
 
-        static private string GetPlatformPath(string title, GatherContextFlags flags, ReportFormat format) {
-            if ((flags & GatherContextFlags.InMemory) != 0) {
+        static private string GetPlatformPath(string title, DumpFlags flags, DumpFormat format) {
+            if ((flags & DumpFlags.InMemory) != 0) {
                 return null;
             }
 
             string fileName = string.Format("{0} {1}", title, DateTime.Now.ToString("dd-MM-yyyy-HHmmss"));
             string extension = ".txt";
-            if (format == ReportFormat.Html) {
+            if (format == DumpFormat.Html) {
                 extension = ".html";
             }
 
@@ -240,19 +252,27 @@ namespace EasyBugReporter {
             #endif // UNITY_EDITOR
         }
 
-        static private GatherContextFlags GetPlatformFlags(GatherContextFlags flags) {
+        static private DumpFlags GetPlatformFlags(DumpFlags flags) {
             #if UNITY_WEBGL && !UNITY_EDITOR
             flags |= GatherContextFlags.InMemory;
             #endif // UNITY_WEBGL
             return flags;
         }
 
+        #endregion // Setup
+
+        /// <summary>
+        /// Configuration flags for a data dump.
+        /// </summary>
         [Flags]
-        public enum GatherContextFlags {
+        public enum DumpFlags {
             InMemory = 0x01,
         }
 
-        public struct GatherContextResult {
+        /// <summary>
+        /// Result of a data dump.
+        /// </summary>
+        public struct DumpResult {
             public string Url;
             public string FilePath;
             public string Contents;

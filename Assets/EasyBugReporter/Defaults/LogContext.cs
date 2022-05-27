@@ -7,7 +7,7 @@ namespace EasyBugReporter {
     /// <summary>
     /// Collects logs with a rolling buffer.
     /// </summary>
-    public class LogContext : IReportSystem {
+    public class LogContext : IDumpSystem {
         #region Consts
 
         public const LogMask DefaultMask = 
@@ -17,10 +17,10 @@ namespace EasyBugReporter {
             LogMask.Production;
         #endif
 
-        static private readonly ReportStyle FailureStyle = new ReportStyle(FontStyle.Bold, Color.white, Color.magenta);
-        static private readonly ReportStyle ErrorStyle = new ReportStyle(FontStyle.Bold, Color.white, Color.red);
-        static private readonly ReportStyle WarningStyle = new ReportStyle(FontStyle.Normal, Color.black, Color.yellow);
-        static private readonly ReportStyle NormalStyle = new ReportStyle(FontStyle.Normal, default, default);
+        static private readonly DumpStyle FailureStyle = new DumpStyle(FontStyle.Bold, Color.white, Color.magenta);
+        static private readonly DumpStyle ErrorStyle = new DumpStyle(FontStyle.Bold, Color.white, Color.red);
+        static private readonly DumpStyle WarningStyle = new DumpStyle(FontStyle.Normal, Color.black, Color.yellow);
+        static private readonly DumpStyle NormalStyle = new DumpStyle(FontStyle.Normal, default, default);
 
         #endregion // Consts
 
@@ -57,7 +57,7 @@ namespace EasyBugReporter {
             }
         }
 
-        public bool GatherReports(IReportWriter writer) {
+        public bool Dump(IDumpWriter writer) {
             if (m_Mask == 0 || m_CompleteBuffer.Count == 0) {
                 return true;
             }
@@ -97,7 +97,7 @@ namespace EasyBugReporter {
             return true;
         }
 
-        static private void WriteTableHeader(IReportWriter writer) {
+        static private void WriteTableHeader(IDumpWriter writer) {
             if (!writer.SupportsTables) {
                 return;
             }
@@ -110,7 +110,7 @@ namespace EasyBugReporter {
             writer.EndTableRow();
         }
 
-        static private void Write(IReportWriter writer, LogData data, long reportTimestamp) {
+        static private void Write(IDumpWriter writer, LogData data, long reportTimestamp) {
             writer.BeginTableRow();
 
             switch(data.Type) {
